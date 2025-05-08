@@ -11,15 +11,16 @@ from openpyxl import load_workbook  # Excel handling
 import random  # Random responses
 import datetime  # Date and time functionalities
 import requests  # For weather API
-from openai_integration import ask_openai 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # For environment variables
+
 # Initialize recognizer
 r = sr.Recognizer()
 keywords = [("stark", 1), ("hey stark", 1), ("hello", 1), ("hi", 1), ("hey", 1), ("get ready", 1)]
 source = sr.Microphone()
 
 print("Active Keywords:", [kw[0] for kw in keywords])
-load_dotenv()
+load_dotenv("stark.env")
+
 # Text-to-Speech Function
 def speak(text):
     """Converts text to speech"""
@@ -102,6 +103,38 @@ def close_app(app_name):
     else:
         speak(f"I couldn't find {app_name} running.")
 
+# DeepSeek Integration
+def ask_deepseek(prompt):
+    """Sends user input to DeepSeek and returns a detailed response."""
+    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"  # Replace with the actual API endpoint
+
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "model": "deepseek-model-name",  # Replace with the specific DeepSeek model
+        "messages": [
+            {"role": "system", "content": "You are a helpful AI assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": 500,  # Increase for longer responses
+        "temperature": 0.7,
+        "top_p": 0.9
+    }
+
+    try:
+        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=data)
+        response.raise_for_status()  # Raise an error for bad status codes
+        result = response.json()
+        return result["choices"][0]["message"]["content"].strip()  # Adjust based on DeepSeek's response structure
+    except requests.exceptions.RequestException as e:
+        return f"DeepSeek API Error: {str(e)}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"
+
 # Recognize Speech Commands
 def recognize_main():
     """Handles user commands and responses"""
@@ -152,8 +185,8 @@ def recognize_main():
                 except ValueError:
                     speak("Please specify a valid volume level.")
             else:
-                # Send unrecognized input to OpenAI
-                response = ask_openai(data)
+                # Send unrecognized input to DeepSeek
+                response = ask_deepseek(data)
                 speak(response)
         except sr.UnknownValueError:
             print("Stark did not understand your request.")
